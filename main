@@ -1,0 +1,351 @@
+import sys
+import time
+import matplotlib.pyplot as plt
+import numpy as np
+
+import pandas as pd
+from matplotlib.ticker import PercentFormatter
+
+from PyQt5 import QtCore, QtWidgets ,QtGui
+from PyQt5.QtCore import QDateTime, QEvent, QObject, QDate, QModelIndex, QAbstractTableModel ,QAbstractItemModel
+from PyQt5.QtWidgets import QMainWindow, QAction, QDateTimeEdit, QDateEdit, QTableWidget, QTableWidgetItem, QDockWidget,QActionGroup, QAbstractButton, QRadioButton, QButtonGroup, QCheckBox, QAbstractItemView, QLayout, QFormLayout, QMessageBox, QStyledItemDelegate, QTextEdit , QHeaderView
+
+from datetime import datetime , date , timedelta
+
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+from matplotlib.ticker import PercentFormatter
+
+
+class TableModel(QAbstractTableModel):
+    def __init__(self, dataframe = pd.DataFrame, parent=None):
+        super().__init__() # call parent class ( QAbstractTableModel) constructor
+        self.dataframe = dataframe
+
+
+
+    def rowCount(self, parent=QModelIndex, *args, **kwargs):
+
+        if parent == QModelIndex():
+
+            return self.dataframe.shape[0]
+
+        return 0
+
+    def columnCount(self, parent=QModelIndex, *args, **kwargs):
+        if parent == QModelIndex():
+
+
+
+            return self.dataframe.shape[1]
+
+        return 0
+
+    def data(self, index, role= QtCore.Qt.DisplayRole):
+
+        try:
+
+
+            if role == QtCore.Qt.ItemDataRole.DisplayRole:
+
+
+
+                return  str(self.dataframe.iloc[index.row(), index.column()])  # return the data at each required index ( this has no relation to the underyling list that is in the model)
+
+
+        except:
+            IndexError
+
+
+    def headerData(self, p_int, Qt_Orientation, role=QtCore.Qt.DisplayRole): # set the header data for the model and in the view
+
+        if Qt_Orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:  # if orientation is horizontal and DisplayRole is string
+            try:
+
+                return str(self.dataframe.columns[p_int])
+
+            except:
+                IndexError
+        return None
+
+
+class main_screen(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.resize(1250,1500) # set window size
+        self.setWindowTitle('Netflix orginals analysis')
+
+        self.opt_label = QtWidgets.QLabel(self)
+        self.opt_label.setGeometry((QtCore.QRect(150,1, 200, 75)))
+        self.opt_label.setText('Select an option')
+        self.opt_label.show()
+
+        self.opt_label_chrt = QtWidgets.QLabel(self)
+        self.opt_label_chrt.setGeometry((QtCore.QRect(800, 1, 200, 85)))
+        self.opt_label_chrt.setText('Select a chart option')
+        self.opt_label_chrt.show()
+
+
+        self.combo_box = QtWidgets.QComboBox(self)
+        self.combo_box.setGeometry((QtCore.QRect(150,75, 250, 30)))
+        self.combo_box.show()
+
+        self.chart_combo = QtWidgets.QComboBox(self)
+        self.chart_combo .setGeometry((QtCore.QRect(750, 75, 250, 30)))
+
+        self.chart_combo.show()
+
+
+        self.combo_box.addItems(['','Average IMDB score by Genre', 'Average IMDB score by Language', 'No. of Titles released by year','Average runtime by language', 'Title count by language','% of titles rating >  8 per genre', ])
+        self.chart_combo.addItems(['', 'IMDB score by genre ', 'IMDB score by language', 'Releases by year' , 'Runtime by language', 'Title count by language' ,'% of titles rating  > 8 per genre' ])
+
+        self.qtable = QtWidgets.QTableView(self)
+        self.combo_box.setCurrentIndex(0)
+        self.chart_combo.setCurrentIndex(0)
+        self.qtable.setGeometry(QtCore.QRect(150, 175, 1000, 1000))
+        self.combo_box.currentIndexChanged.connect(self.option_selected)
+        self.chart_combo.currentIndexChanged.connect(self.chrt_option_selected)
+
+        self.qtable.setColumnWidth(0, 200)
+
+        #self.file = 'C:\\Users\\sbrid\\Documents\\Udemy\\Data science course\\03-Pandas\\tips.csv'
+
+        self.df = pd.read_csv('C:\\Users\\sbrid\\Documents\\Kaggle\\NetflixOriginals.csv',encoding='unicode_escape')
+        self.df = self.df.dropna(axis='columns', how='all')
+        self.df['Premiere'] = pd.to_datetime(self.df['Premiere']) # convert dates to pandas datetime
+
+       # self.artist_counts = self.df['Artist'].value_counts()
+        #self.artist_cnt = self.df['Artist_counts'] = self.df['Artist'].map(self.artist_counts)
+        #self.qtable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        #self.qtable.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+
+
+
+
+
+
+
+
+    def option_selected(self, index):
+
+
+
+
+
+
+        if index == 1:
+
+
+
+            self.imdb_score_grouped_genre = self.df.groupby('Genre')['IMDB Score'].mean().round(1).reset_index().sort_values(by='IMDB Score', ascending = False)
+            self.opt_1 = TableModel(self.imdb_score_grouped_genre)
+            self.qtable.setModel(self.opt_1)
+            self.qtable.setColumnWidth(0,275)
+            self.qtable.show()
+
+
+        if index == 2:
+
+            self.imdb_score_grouped_genre = self.df.groupby('Language')['IMDB Score'].mean().round(1).reset_index().sort_values(by='IMDB Score', ascending=False)
+            self.opt_2 = TableModel(self.imdb_score_grouped_genre)
+            self.qtable.setModel(self.opt_2)
+            self.qtable.setColumnWidth(0, 275)
+            self.qtable.show()
+
+        if index == 3:
+            self.releases_by_year  = self.df.groupby(self.df['Premiere'].dt.year)['Title'].count().reset_index().sort_values(by='Title', ascending=False)
+            self.opt_3 = TableModel(self.releases_by_year )
+            self.qtable.setModel(self.opt_3)
+            self.qtable.setColumnWidth(0, 275)
+            self.qtable.show()
+
+
+
+        if index == 4:
+            self.runtime_by_language = self.df.groupby('Language')['Runtime'].mean().round(1).reset_index().sort_values('Runtime',ascending=False)
+            self.opt_4 = TableModel(self.runtime_by_language)
+            self.qtable.setModel(self.opt_4)
+            self.qtable.setColumnWidth(0, 275)
+            self.qtable.show()
+
+
+
+
+        if index == 5:
+            self.genre_count_language = self.df.groupby('Language')['Title'].count().reset_index().sort_values('Title', ascending=False)
+            self.opt_5 = TableModel(self.genre_count_language)
+            self.qtable.setModel(self.opt_5)
+            self.qtable.setColumnWidth(0, 275)
+            self.qtable.show()
+
+
+
+
+
+
+
+
+
+        if index == 6:
+            self.above_8 = self.df['IMDB Score'] > 8
+            self.titles_per_genre = self.df.groupby('Genre')['Title'].count()
+            self.above_8_grp= self.df[self.above_8].groupby('Genre')['IMDB Score'].count()
+            self.percentage = (self.above_8_grp / self.titles_per_genre * 100).round(1).fillna(0).reset_index(name='Count').sort_values(by='Count',ascending = False).astype(str) + '%'
+
+
+
+
+            self.opt_6 = TableModel(self.percentage)
+            self.qtable.setModel(self.opt_6)
+            self.qtable.setColumnWidth(0, 275)
+            self.qtable.setColumnWidth(1, 200)
+            self.qtable.show()
+
+    def chrt_option_selected(self, index):
+
+        if index == 1:
+            self.genre_imdb_score_chrt = self.df.groupby('Genre')['IMDB Score'].mean().round(1).reset_index().sort_values(by='IMDB Score', ascending = False).head(20)
+            self.c = Charts(self.genre_imdb_score_chrt)
+
+
+        if index == 2:
+            self.imdb_score_genre_chrt = self.df.groupby('Language')['IMDB Score'].mean().round(1).reset_index().sort_values(by='IMDB Score', ascending=False).head(20)
+            self.c = Charts(self.imdb_score_genre_chrt)
+
+
+        if index == 3:
+            self.releases_by_year_chrt = self.df.groupby(self.df['Premiere'].dt.year)['Title'].count().reset_index().sort_values(by='Title', ascending=False).head(20)
+            self.c = Charts(self.releases_by_year_chrt)
+
+
+
+        if index == 4:
+            self.runtime_by_language_chrt = self.df.groupby('Language')['Runtime'].mean().round(1).reset_index().sort_values(
+                'Runtime', ascending=False).head(20)
+            self.c = Charts( self.runtime_by_language_chrt )
+
+
+
+        if index == 5:
+            self.genre_count_language_chrt = self.df.groupby('Language')['Title'].count().reset_index().sort_values('Title',ascending=False).head(20)
+            self.c = Charts(self.genre_count_language_chrt,'index_5')
+
+
+
+        if index == 6:
+
+
+            self.above_8_chrt = self.df['IMDB Score'] > 8
+            self.titles_per_genre_chrt = self.df.groupby('Genre')['Title'].count()
+            self.above_8_chrt_grp = self.df[self.above_8_chrt].groupby('Genre')['IMDB Score'].count()
+            self.percentage_chrt = (self.above_8_chrt_grp/ self.titles_per_genre_chrt).round(1).fillna(0).reset_index(
+                name='Percentage').sort_values(by='Percentage', ascending=False).head(4)
+
+            self.c = Charts(self.percentage_chrt, 'index_6')
+
+
+
+
+
+    def Chart(self):
+
+        self.c = Charts()
+        self.c.show()
+
+
+
+
+            #def interesting_analysis(self):
+
+
+class Canvas(FigureCanvasQTAgg):
+
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = fig.add_subplot(111)
+        super().__init__(fig)
+
+
+
+class Charts(QMainWindow):
+    def __init__(self, metric , name = None ):
+        super().__init__()
+        self.metric = metric
+        self.name = name
+
+
+
+
+
+        self.resize(1750, 900)  # More reasonable window size
+        self.setWindowTitle('Netflix Originals Analysis')
+
+        self.canv = Canvas(self, width=5, height=7, dpi=80)
+
+        self.x = self.metric[self.metric.columns[0]]  # Convert years to string
+        self.y = self.metric[self.metric.columns[1]]
+
+        self.canv.axes.bar(self.x, self.y, color='blue' , width=0.5 )
+
+
+
+
+
+        self.canv.axes.set_title('Number of Netflix Originals by Year')
+        self.canv.axes.set_ylabel('Count')
+        self.canv.axes.set_xlabel('Year')
+        self.canv.axes.tick_params(axis='x', rotation=40)
+
+
+        #self.canv.axes.invert_yaxis()
+
+        self.setCentralWidget(self.canv)
+        self.showMaximized()
+        #self.show()
+
+        if self.name == 'index_6':
+            self.canv.axes.set_ylim(0, 1)
+
+            self.canv.axes.yaxis.set_major_formatter(PercentFormatter(1.0))
+
+
+        if self.name == 'index_5':
+            self.canv.axes.set_ylabel('Count')
+            self.canv.axes.set_xlabel('Language')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv) # enter main event loop
+    ms = main_screen()
+    ms.show()
+
+
+
+    sys.exit(app.exec_())
+
+
+
+
+
+
